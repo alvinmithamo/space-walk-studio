@@ -1,333 +1,228 @@
-import React, { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Progress } from '@/components/ui/progress';
+import React, { useState } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Badge } from '@/components/ui/badge'
+import { Progress } from '@/components/ui/progress'
 import { 
   Plus, 
+  Search, 
   Eye, 
+  Edit, 
+  Trash2, 
   Share2, 
-  MoreHorizontal, 
+  Play,
   Calendar,
-  Camera,
-  Users,
-  Download,
-  Edit3,
-  Trash2
-} from 'lucide-react';
-import { motion } from 'framer-motion';
-
-interface TourProject {
-  id: string;
-  title: string;
-  description: string;
-  thumbnail: string;
-  createdAt: string;
-  status: 'draft' | 'processing' | 'published';
-  views: number;
-  totalImages: number;
-  processedImages: number;
-  shareUrl?: string;
-}
+  Image as ImageIcon,
+  Loader2
+} from 'lucide-react'
+import { TourProject } from '@/hooks/useTours'
 
 interface TourDashboardProps {
-  projects: TourProject[];
-  onCreateNew: () => void;
-  onViewTour: (project: TourProject) => void;
-  onEditTour: (project: TourProject) => void;
-  onDeleteTour: (project: TourProject) => void;
-  onShareTour: (project: TourProject) => void;
+  projects: TourProject[]
+  loading?: boolean
+  onCreateNew: () => void
+  onViewTour: (tour: TourProject) => void
+  onEditTour: (tour: TourProject) => void
+  onDeleteTour: (tour: TourProject) => void
+  onShareTour: (tour: TourProject) => void
 }
 
-const TourCard: React.FC<{
-  project: TourProject;
-  onView: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-  onShare: () => void;
+const TourCard: React.FC<{ 
+  project: TourProject; 
+  onView: () => void; 
+  onEdit: () => void; 
+  onDelete: () => void; 
+  onShare: () => void; 
 }> = ({ project, onView, onEdit, onDelete, onShare }) => {
-  const getStatusColor = (status: string) => {
+  
+  const getStatusColor = (status: TourProject['status']) => {
     switch (status) {
-      case 'published': return 'bg-green-500/10 text-green-500 border-green-500/20';
-      case 'processing': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20';
-      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20';
+      case 'published': return 'bg-green-500/10 text-green-500 border-green-500/20'
+      case 'processing': return 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20'
+      case 'draft': return 'bg-blue-500/10 text-blue-500 border-blue-500/20'
+      default: return 'bg-gray-500/10 text-gray-500 border-gray-500/20'
     }
-  };
+  }
 
-  const processingProgress = project.totalImages > 0 
-    ? (project.processedImages / project.totalImages) * 100 
-    : 0;
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    })
+  }
+
+  const totalImages = project.images?.length || 0
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      whileHover={{ y: -4 }}
+      whileHover={{ y: -8, scale: 1.02 }}
+      transition={{ duration: 0.3, ease: "easeOut" }}
       className="group"
     >
-      <Card className="h-full transition-smooth hover:shadow-elegant bg-card/50 backdrop-blur-sm border-border/50">
-        <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex-1 min-w-0">
-              <CardTitle className="text-lg truncate">{project.title}</CardTitle>
-              <CardDescription className="mt-1 line-clamp-2">
-                {project.description}
-              </CardDescription>
+      <Card className="overflow-hidden glass-effect border-border/50 hover:shadow-elegant transition-smooth">
+        <div className="aspect-video relative overflow-hidden bg-muted">
+          {project.thumbnailUrl ? (
+            <img 
+              src={project.thumbnailUrl} 
+              alt={project.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center">
+              <ImageIcon className="h-12 w-12 text-muted-foreground" />
             </div>
-            <Badge 
-              className={`ml-2 shrink-0 ${getStatusColor(project.status)} border`}
-              variant="outline"
-            >
+          )}
+          
+          <div className="absolute top-3 right-3">
+            <Badge className={`${getStatusColor(project.status)} capitalize font-medium`}>
               {project.status}
             </Badge>
           </div>
-        </CardHeader>
-        
-        <CardContent className="space-y-4">
-          {/* Thumbnail */}
-          <div 
-            className="aspect-video bg-muted rounded-lg bg-cover bg-center relative overflow-hidden cursor-pointer group"
-            style={{ backgroundImage: `url(${project.thumbnail})` }}
-            onClick={onView}
-          >
-            <div className="absolute inset-0 bg-black/20 group-hover:bg-black/40 transition-smooth flex items-center justify-center">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                whileHover={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.2 }}
-              >
-                <Button variant="hero" size="sm" className="shadow-glow">
-                  <Eye className="h-4 w-4" />
-                  View Tour
-                </Button>
-              </motion.div>
-            </div>
-          </div>
 
-          {/* Processing Progress */}
-          {project.status === 'processing' && (
-            <div className="space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Processing images...</span>
-                <span className="text-muted-foreground">
-                  {project.processedImages}/{project.totalImages}
-                </span>
-              </div>
-              <Progress value={processingProgress} className="h-2" />
-            </div>
+          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-16 w-16 rounded-full bg-white/20 backdrop-blur-sm border border-white/30 text-white hover:bg-white/30"
+              onClick={onView}
+            >
+              <Play className="h-8 w-8 ml-1" />
+            </Button>
+          </div>
+        </div>
+
+        <CardHeader className="space-y-3">
+          <CardTitle className="text-lg leading-6 group-hover:text-primary transition-colors line-clamp-2">
+            {project.title}
+          </CardTitle>
+          
+          {project.description && (
+            <p className="text-sm text-muted-foreground line-clamp-2 leading-relaxed">
+              {project.description}
+            </p>
           )}
 
-          {/* Stats */}
-          <div className="flex items-center justify-between text-sm text-muted-foreground">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-1">
-                <Camera className="h-4 w-4" />
-                <span>{project.totalImages}</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                <span>{project.views}</span>
-              </div>
+          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+            <div className="flex items-center gap-1.5">
+              <Eye className="h-4 w-4" />
+              <span>{project.viewCount} views</span>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1.5">
+              <ImageIcon className="h-4 w-4" />
+              <span>{totalImages} images</span>
+            </div>
+            <div className="flex items-center gap-1.5">
               <Calendar className="h-4 w-4" />
-              <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+              <span>{formatDate(project.createdAt)}</span>
             </div>
           </div>
+        </CardHeader>
 
-          {/* Actions */}
+        <CardContent className="pt-0">
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={onView}
-              className="flex-1"
-            >
-              <Eye className="h-4 w-4" />
+            <Button variant="outline" size="sm" className="flex-1" onClick={onView}>
+              <Eye className="h-4 w-4 mr-2" />
               View
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onEdit}
-            >
-              <Edit3 className="h-4 w-4" />
+            <Button variant="outline" size="sm" onClick={onEdit}>
+              <Edit className="h-4 w-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onShare}
-              disabled={project.status !== 'published'}
-            >
+            <Button variant="outline" size="sm" onClick={onShare} disabled={project.status !== 'published'}>
               <Share2 className="h-4 w-4" />
             </Button>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={onDelete}
-              className="text-destructive hover:text-destructive"
-            >
+            <Button variant="outline" size="sm" onClick={onDelete} className="hover:bg-destructive/10">
               <Trash2 className="h-4 w-4" />
             </Button>
           </div>
         </CardContent>
       </Card>
     </motion.div>
-  );
-};
+  )
+}
 
 export const TourDashboard: React.FC<TourDashboardProps> = ({
   projects,
+  loading = false,
   onCreateNew,
   onViewTour,
   onEditTour,
   onDeleteTour,
   onShareTour,
 }) => {
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState('')
 
   const filteredProjects = projects.filter(project =>
     project.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    (project.description && project.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  )
 
-  const stats = {
-    total: projects.length,
-    published: projects.filter(p => p.status === 'published').length,
-    processing: projects.filter(p => p.status === 'processing').length,
-    totalViews: projects.reduce((sum, p) => sum + p.views, 0),
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4 }}
-        className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4"
-      >
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-            My Virtual Tours
+          <h1 className="text-3xl font-bold mb-2 bg-gradient-primary bg-clip-text text-transparent">
+            Virtual Tours
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Create and manage your 360° virtual tour experiences
+          <p className="text-muted-foreground">
+            Create, manage, and share your immersive 360° experiences
           </p>
         </div>
-        <Button 
-          variant="hero" 
-          size="lg" 
-          onClick={onCreateNew}
-          className="shadow-glow"
-        >
-          <Plus className="h-5 w-5" />
+        
+        <Button onClick={onCreateNew} className="shadow-glow hover:scale-105 transition-smooth group" variant="hero" size="lg">
+          <Plus className="h-5 w-5 mr-2 group-hover:rotate-90 transition-transform" />
           Create New Tour
         </Button>
-      </motion.div>
+      </div>
 
-      {/* Stats Cards */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay: 0.1 }}
-        className="grid grid-cols-2 lg:grid-cols-4 gap-4"
-      >
-        <Card className="glass-effect">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Tours</p>
-                <p className="text-2xl font-bold">{stats.total}</p>
-              </div>
-              <Camera className="h-8 w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass-effect">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Published</p>
-                <p className="text-2xl font-bold">{stats.published}</p>
-              </div>
-              <Eye className="h-8 w-8 text-green-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass-effect">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Processing</p>
-                <p className="text-2xl font-bold">{stats.processing}</p>
-              </div>
-              <Download className="h-8 w-8 text-yellow-500" />
-            </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="glass-effect">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Total Views</p>
-                <p className="text-2xl font-bold">{stats.totalViews}</p>
-              </div>
-              <Users className="h-8 w-8 text-accent" />
-            </div>
-          </CardContent>
-        </Card>
-      </motion.div>
+      {projects.length === 0 ? (
+        <div className="text-center py-16">
+          <ImageIcon className="h-16 w-16 mx-auto mb-4 text-muted-foreground" />
+          <h3 className="text-xl font-semibold mb-2">No tours yet</h3>
+          <p className="text-muted-foreground mb-6">Create your first virtual tour to get started.</p>
+          <Button onClick={onCreateNew} variant="hero" size="lg">
+            <Plus className="h-5 w-5 mr-2" />
+            Create Your First Tour
+          </Button>
+        </div>
+      ) : (
+        <>
+          <div className="relative max-w-md">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search tours..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
 
-      {/* Tours Grid */}
-      {filteredProjects.length > 0 ? (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        >
-          {filteredProjects.map((project, index) => (
-            <motion.div
-              key={project.id}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: index * 0.1 }}
-            >
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredProjects.map((project) => (
               <TourCard
+                key={project.id}
                 project={project}
                 onView={() => onViewTour(project)}
                 onEdit={() => onEditTour(project)}
                 onDelete={() => onDeleteTour(project)}
                 onShare={() => onShareTour(project)}
               />
-            </motion.div>
-          ))}
-        </motion.div>
-      ) : (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.4 }}
-          className="text-center py-12"
-        >
-          <Camera className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-xl font-semibold mb-2">No tours yet</h3>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            Get started by creating your first virtual tour. Upload 360° images and let users explore your spaces.
-          </p>
-          <Button variant="hero" size="lg" onClick={onCreateNew}>
-            <Plus className="h-5 w-5" />
-            Create Your First Tour
-          </Button>
-        </motion.div>
+            ))}
+          </div>
+        </>
       )}
     </div>
-  );
-};
-
-export default TourDashboard;
+  )
+}

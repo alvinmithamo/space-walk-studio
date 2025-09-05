@@ -2,10 +2,13 @@ import React, { useState } from 'react';
 import { Navigation } from '@/components/Navigation';
 import { AuthForms } from '@/components/AuthForms';
 import { TourDashboard } from '@/components/TourDashboard';
+import { TourUpload } from '@/components/TourUpload';
 import { VRViewer } from '@/components/VRViewer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { useAuth } from '@/hooks/useAuth';
+import { useTours } from '@/hooks/useTours';
 import { 
   Camera, 
   Zap, 
@@ -19,55 +22,8 @@ import {
   Smartphone,
   Monitor
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import heroImage from '@/assets/hero-vr.jpg';
-
-interface User {
-  email: string;
-  name: string;
-}
-
-// Mock data for demo
-import tour1Image from '@/assets/tour-1.jpg';
-import tour2Image from '@/assets/tour-2.jpg';
-import tour3Image from '@/assets/tour-3.jpg';
-
-const mockTours = [
-  {
-    id: '1',
-    title: 'Modern Downtown Apartment',
-    description: 'Stunning 2BR apartment with city views and modern amenities',
-    thumbnail: tour1Image,
-    createdAt: '2024-01-15',
-    status: 'published' as const,
-    views: 245,
-    totalImages: 8,
-    processedImages: 8,
-    shareUrl: 'https://example.com/tour/1',
-  },
-  {
-    id: '2',
-    title: 'Luxury Beach House',
-    description: 'Oceanfront property with panoramic views and private beach access',
-    thumbnail: tour2Image,
-    createdAt: '2024-01-20',
-    status: 'processing' as const,
-    views: 0,
-    totalImages: 12,
-    processedImages: 8,
-  },
-  {
-    id: '3',
-    title: 'Historic City Loft',
-    description: 'Converted warehouse loft in the heart of the arts district',
-    thumbnail: tour3Image,
-    createdAt: '2024-01-25',
-    status: 'draft' as const,
-    views: 12,
-    totalImages: 6,
-    processedImages: 6,
-  },
-];
 
 const mockHotspots = [
   { id: '1', position: [10, 0, -20] as [number, number, number], label: 'Living Room' },
@@ -289,25 +245,27 @@ const DemoSection = () => (
 const Index = () => {
   const [currentPage, setCurrentPage] = useState('home');
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
+  const [showUpload, setShowUpload] = useState(false);
+  const { user, loading, signUp, signIn, signOut } = useAuth();
+  const { tours, loading: toursLoading, createTour, updateTour, deleteTour } = useTours();
 
   const handleAuth = async (data: { email: string; password: string; name?: string }) => {
-    setIsAuthLoading(true);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    setUser({
-      email: data.email,
-      name: data.name || data.email.split('@')[0],
-    });
-    setCurrentPage('dashboard');
-    setIsAuthLoading(false);
+    try {
+      if (authMode === 'login') {
+        await signIn(data.email, data.password);
+      } else {
+        await signUp(data.email, data.password, data.name || '');
+      }
+      setCurrentPage('dashboard');
+    } catch (error) {
+      // Error handling is done in the auth hooks
+      console.error('Auth error:', error);
+    }
   };
 
   const handleAuthAction = (action: 'login' | 'logout') => {
     if (action === 'logout') {
-      setUser(null);
+      signOut();
       setCurrentPage('home');
     } else {
       setCurrentPage('auth');
@@ -322,6 +280,47 @@ const Index = () => {
     }
   };
 
+  const handleTourAction = async (action: string, tour?: any) => {
+    try {
+      switch (action) {
+        case 'create':
+          setShowUpload(true);
+          break;
+        case 'view':
+          console.log('View tour:', tour);
+          break;
+        case 'edit':
+          console.log('Edit tour:', tour);
+          break;
+        case 'delete':
+          if (tour && confirm(`Are you sure you want to delete "${tour.title}"?`)) {
+            await deleteTour(tour.id);
+          }
+          break;
+        case 'share':
+          if (tour?.shareToken) {
+            const shareUrl = `${window.location.origin}/tour/${tour.shareToken}`;
+            navigator.clipboard.writeText(shareUrl);
+            console.log('Share URL copied:', shareUrl);
+          }
+          break;
+      }
+    } catch (error) {
+      console.error('Tour action error:', error);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="flex items-center gap-2 text-foreground">
+          <div className="h-6 w-6 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+          <span>Loading...</span>
+        </div>
+      </div>
+    );
+  }
+
   // Render different pages
   if (currentPage === 'auth') {
     return (
@@ -329,7 +328,7 @@ const Index = () => {
         mode={authMode}
         onModeChange={setAuthMode}
         onSubmit={handleAuth}
-        isLoading={isAuthLoading}
+        isLoading={loading}
       />
     );
   }
@@ -344,6 +343,18 @@ const Index = () => {
         userEmail={user?.email}
       />
 
+      <AnimatePresence>
+        {showUpload && (
+          <TourUpload
+            onClose={() => setShowUpload(false)}
+            onTourCreated={(tourId) => {
+              setShowUpload(false);
+              console.log('Tour created:', tourId);
+            }}
+          />
+        )}
+      </AnimatePresence>
+
       {currentPage === 'home' && (
         <>
           <HeroSection onGetStarted={handleGetStarted} />
@@ -355,12 +366,13 @@ const Index = () => {
       {currentPage === 'dashboard' && user && (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <TourDashboard
-            projects={mockTours}
-            onCreateNew={() => console.log('Create new tour')}
-            onViewTour={(tour) => console.log('View tour:', tour)}
-            onEditTour={(tour) => console.log('Edit tour:', tour)}
-            onDeleteTour={(tour) => console.log('Delete tour:', tour)}
-            onShareTour={(tour) => console.log('Share tour:', tour)}
+            projects={tours}
+            loading={toursLoading}
+            onCreateNew={() => handleTourAction('create')}
+            onViewTour={(tour) => handleTourAction('view', tour)}
+            onEditTour={(tour) => handleTourAction('edit', tour)}
+            onDeleteTour={(tour) => handleTourAction('delete', tour)}
+            onShareTour={(tour) => handleTourAction('share', tour)}
           />
         </div>
       )}

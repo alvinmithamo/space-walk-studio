@@ -10,7 +10,7 @@ import { motion } from 'framer-motion';
 interface AuthFormsProps {
   mode: 'login' | 'signup';
   onModeChange: (mode: 'login' | 'signup') => void;
-  onSubmit: (data: { email: string; password: string; name?: string }) => void;
+  onSubmit: (data: { email: string; password: string; name?: string }) => Promise<void>;
   isLoading?: boolean;
 }
 
@@ -84,10 +84,10 @@ export const AuthForms: React.FC<AuthFormsProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (validateForm()) {
-      onSubmit({
+      await onSubmit({
         email: formData.email,
         password: formData.password,
         ...(mode === 'signup' && { name: formData.name }),
